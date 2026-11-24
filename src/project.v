@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module wallace_multiplier_serial (
+module tt_um_wallace_multiplier_serial (
     input wire       clk,
     input wire       rst,
     input wire       cs,
