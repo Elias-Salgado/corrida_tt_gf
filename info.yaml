@@ -17,24 +17,24 @@ project:
 
 pinout:
   # Inputs
-  ui[0]: "s_data — serial weight bit input"
-  ui[1]: "s_clk_en — serial clock enable"
-  ui[2]: "mode_prog — 1=program weights, 0=run"
-  ui[3]: "obs_step — rising edge selects next neuron to observe"
-  ui[4]: "stim_0 — external input spike 0"
-  ui[5]: "stim_1 — external input spike 1"
-  ui[6]: "stim_2 — external input spike 2"
-  ui[7]: "stim_3 — external input spike 3"
+  ui[0]: "data_in[0]"
+  ui[1]: "data_in[1]"
+  ui[2]: "data_in[2]"
+  ui[3]: "data_in[3]"
+  ui[4]: "data_in[4]"
+  ui[5]: "data_in[5]"
+  ui[6]: "data_in[6]"
+  ui[7]: "data_in[7]"
 
   # Outputs
-  uo[0]: "spike_0 — neuron 0 spike output"
-  uo[1]: "spike_1 — neuron 1 spike output"
-  uo[2]: "spike_2 — neuron 2 spike output"
-  uo[3]: "spike_3 — neuron 3 spike output"
-  uo[4]: "prog_done — all 128 weight bits loaded"
-  uo[5]: "obs_sel[0] — observed neuron index, low bit"
-  uo[6]: "obs_sel[1] — observed neuron index, high bit"
-  uo[7]: ""
+  uo[0]: "data_out[0]"
+  uo[1]: "data_out[1]"
+  uo[2]: "data_out[2]"
+  uo[3]: "data_out[3]"
+  uo[4]: "data_out[4]"
+  uo[5]: "data_out[5]"
+  uo[6]: "data_out[6]"
+  uo[7]: "data_out[7]"
 
   # Bidirectional pins — outputs
   uio[0]: "v_mem[0] — membrane potential of observed neuron"
