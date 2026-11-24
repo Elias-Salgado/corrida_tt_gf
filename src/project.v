@@ -4,7 +4,7 @@ module tt_um_wallace_multiplier_serial (
     input wire       rst,
     input wire       cs,
     input wire [7:0] data_in,
-    output reg [7:0] data_out
+    output reg [7:0] data_out 
 );
     localparam [1:0] READ = 2'd0, COMPUTE = 2'd1, WRITE = 2'd2;
     reg [1:0] state;
