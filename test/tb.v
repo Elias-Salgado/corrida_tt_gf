@@ -28,7 +28,7 @@ module tb ();
 `endif
 
   // Replace tt_um_example with your module name:
-  wallace_multiplier_serial user_project (
+  tt_um_wallace_multiplier_serial user_project (
 
       // Include power ports for the Gate Level test:
 `ifdef GL_TEST
