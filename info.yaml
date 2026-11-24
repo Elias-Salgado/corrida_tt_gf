@@ -13,9 +13,7 @@ project:
 
   source_files:
     - "project.v"
-    - "lif_neuron.v"
-    - "synapse_matrix.v"
-    - "weight_storage.v"
+    - "24b_multiplier_adapted.v"
 
 pinout:
   # Inputs
