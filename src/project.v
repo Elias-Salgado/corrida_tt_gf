@@ -2,7 +2,7 @@
 module tt_um_wallace_multiplier_serial (
     input wire       clk,
     input wire       rst,
-    input wire       cs,
+    input wire       ena,
     input wire [7:0] data_in,
     output reg [7:0] data_out 
 );
@@ -25,7 +25,7 @@ module tt_um_wallace_multiplier_serial (
             input_reg  <= 48'd0;
             output_reg <= 48'd0;
             data_out   <= 8'd0;
-        end else if (cs) begin
+        end else if (ena) begin
             case (state)
                 READ: begin
                     input_reg <= {input_reg[39:0], data_in};
