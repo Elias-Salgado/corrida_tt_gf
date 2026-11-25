@@ -24,7 +24,7 @@ module tt_um_wallace_multiplier_serial (
     assign uio_oe  = 0;
     
     always @(posedge clk) begin
-        if (rst_n) begin
+        if (!rst_n) begin
             state      <= READ;
             byte_count <= 3'd0;
             input_reg  <= 48'd0;
