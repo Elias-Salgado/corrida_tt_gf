@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 module tt_um_wallace_multiplier_serial (
     input wire       clk,
-    input wire       rst,
+    input wire       rst_n,
     input wire       ena,
     input wire [7:0] data_in,
     output reg [7:0] data_out 
@@ -19,7 +19,7 @@ module tt_um_wallace_multiplier_serial (
     );
 
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_n) begin
             state      <= READ;
             byte_count <= 3'd0;
             input_reg  <= 48'd0;
