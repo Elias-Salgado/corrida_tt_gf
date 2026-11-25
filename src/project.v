@@ -5,6 +5,7 @@ module tt_um_wallace_multiplier_serial (
     input wire       ena,
     input wire [7:0] ui_in,
     input wire [7:0] uio_in, 
+    output wire [7:0] uio_out,
     output wire [7:0] uio_oe,
     output reg [7:0] uo_out 
 );
@@ -20,6 +21,7 @@ module tt_um_wallace_multiplier_serial (
         .c(product)
     );
 
+    assign uio_out = 0;
     assign uio_oe  = 0;
     
     always @(posedge clk) begin
