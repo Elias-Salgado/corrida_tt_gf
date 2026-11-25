@@ -4,7 +4,7 @@ module tt_um_wallace_multiplier_serial (
     input wire       rst_n,
     input wire       ena,
     input wire [7:0] ui_in,
-    output reg [7:0] uio_in, 
+    input wire [7:0] uio_in, 
     output reg [7:0] uo_out 
 );
     localparam [1:0] READ = 2'd0, COMPUTE = 2'd1, WRITE = 2'd2;
@@ -18,8 +18,6 @@ module tt_um_wallace_multiplier_serial (
         .b(input_reg[23:0]),
         .c(product)
     );
-
-    assign uio_in = 8'b0;
 
     always @(posedge clk) begin
         if (rst_n) begin
