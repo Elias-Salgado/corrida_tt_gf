@@ -1,180 +1,109 @@
-# SPDX-FileCopyrightText: © 2026 Tiny Tapeout
-# SPDX-License-Identifier: Apache-2.0
+import random
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ClockCycles
+from cocotb.triggers import RisingEdge, Timer
+
+# Protocol of tt_um_wallace_multiplier_serial (24 x 24 -> 48 bit):
+#   cycles 1-6  : READ    one byte of ui_in is shifted in per clock (MSB first)
+#   cycle  7    : COMPUTE the product is latched (ui_in is ignored)
+#   cycles 8-13 : WRITE   the 48-bit result leaves on uo_out, MSB byte first
+# The next READ phase starts on the clock edge right after the last WRITE.
+
+N_BYTES = 6
 
 
-async def shift_bit(dut, bit):
-    current = int(dut.ui_in.value)
-    dut.ui_in.value = (current & ~0b011) | (bit & 1) | (1 << 1)
+async def tick(dut):
+    """Wait for a rising edge, then let the outputs settle (1 us << 5 us half period)."""
     await RisingEdge(dut.clk)
-    current = int(dut.ui_in.value)
-    dut.ui_in.value = current & ~(1 << 1)
-    await RisingEdge(dut.clk)
+    await Timer(1, unit="us")
 
 
-async def program_weights(dut, pattern):
-    dut.ui_in.value = 0b100
-    await RisingEdge(dut.clk)
-    for i in range(127, -1, -1):
-        bit = (pattern >> i) & 1
-        await shift_bit(dut, bit)
-    dut.ui_in.value = 0b000
-    await RisingEdge(dut.clk)
-
-
-@cocotb.test()
-async def test_reset(dut):
-    dut._log.info("Test 1 — reset")
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-
-    dut.rst_n.value = 1
+async def reset(dut):
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 5)
-
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 3)
-
-    assert dut.uo_out.value == 0, \
-        f"expected uo_out=0 after reset, got {dut.uo_out.value}"
-
+    for _ in range(10):
+        await tick(dut)
     dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
-    dut._log.info("PASS")
+
+
+async def multiply(dut, a, b):
+    """Run one full transaction; return the 48-bit result rebuilt from the six output bytes."""
+    # READ: 6 bytes, operand A first then operand B, each MSB first.
+    stream = list(a.to_bytes(3, "big")) + list(b.to_bytes(3, "big"))
+    for byte in stream:
+        dut.ui_in.value = byte
+        await tick(dut)
+
+    # COMPUTE: the input must be ignored here, so drive garbage on purpose.
+    dut.ui_in.value = 0xAA
+    await tick(dut)
+
+    # WRITE: one result byte per clock, MSB first.
+    result = 0
+    for _ in range(N_BYTES):
+        dut.ui_in.value = 0x55  # ignored during WRITE
+        await tick(dut)
+        result = (result << 8) | int(dut.uo_out.value)
+    return result
 
 
 @cocotb.test()
-async def test_weight_programming(dut):
-    dut._log.info("Test 2 — weight programming")
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+async def test_project(dut):
+    dut._log.info("Start")
 
-    dut.rst_n.value = 0
-    dut.ena.value = 0
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
+    # 10 us period (100 KHz)
+    clock = Clock(dut.clk, 10, unit="us")
+    cocotb.start_soon(clock.start())
 
-    assert (int(dut.uo_out.value) >> 4) & 1 == 0, \
-        "prog_done should be 0 before loading weights"
+    dut._log.info("Reset")
+    await reset(dut)
 
-    weight_pattern = int("0101" * 32, 2)
-    await program_weights(dut, weight_pattern)
-    await ClockCycles(dut.clk, 2)
+    assert int(dut.uio_oe.value) == 0, "uio pins must stay inputs"
+    assert int(dut.uio_out.value) == 0
 
-    assert (int(dut.uo_out.value) >> 4) & 1 == 1, \
-        "prog_done should be 1 after loading 128 bits"
+    dut._log.info("Test project behavior")
 
-    dut._log.info("PASS")
+    vectors = [
+        (0x000000, 0x000000),
+        (0x000001, 0x000001),
+        (0x000002, 0x000003),
+        (0xFFFFFF, 0x000001),
+        (0xFFFFFF, 0xFFFFFF),  # largest product
+        (0x800000, 0x000002),
+        (0x123456, 0x789ABC),
+        (0xA5A5A5, 0x5A5A5A),
+    ]
+    rng = random.Random(1234)
+    vectors += [(rng.getrandbits(24), rng.getrandbits(24)) for _ in range(20)]
 
-
-@cocotb.test()
-async def test_prog_done_clears(dut):
-    dut._log.info("Test 3 — prog_done clears on reset")
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-
-    dut.rst_n.value = 0
-    dut.ena.value = 0
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
-
-    weight_pattern = int("0101" * 32, 2)
-    await program_weights(dut, weight_pattern)
-    await ClockCycles(dut.clk, 2)
-
-    assert (int(dut.uo_out.value) >> 4) & 1 == 1, \
-        "expected prog_done=1 after programming"
-
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 2)
-
-    assert (int(dut.uo_out.value) >> 4) & 1 == 0, \
-        "prog_done should clear on reset"
-
-    dut.rst_n.value = 1
-    dut._log.info("PASS")
+    # Back-to-back transactions: this also checks that the FSM returns to READ cleanly.
+    for a, b in vectors:
+        got = await multiply(dut, a, b)
+        exp = a * b
+        dut._log.info(f"{a:#08x} x {b:#08x} = {got:#014x} (expected {exp:#014x})")
+        assert got == exp, f"{a:#x} x {b:#x}: got {got:#x}, expected {exp:#x}"
 
 
 @cocotb.test()
-async def test_no_spikes_zero_weights(dut):
-    dut._log.info("Test 4 — no spikes with zero weights")
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+async def test_output_timing(dut):
+    """uo_out must stay at 0 through READ and COMPUTE, and carry the MSB byte on WRITE cycle 1."""
+    clock = Clock(dut.clk, 10, unit="us")
+    cocotb.start_soon(clock.start())
+    await reset(dut)
 
-    dut.rst_n.value = 0
-    dut.ena.value = 0
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
+    a, b = 0xFFFFFF, 0xFFFFFF  # product 0xFFFFFE000001
+    stream = list(a.to_bytes(3, "big")) + list(b.to_bytes(3, "big"))
 
-    await program_weights(dut, 0)
-    await ClockCycles(dut.clk, 2)
+    for i, byte in enumerate(stream):
+        dut.ui_in.value = byte
+        await tick(dut)
+        assert int(dut.uo_out.value) == 0, f"uo_out changed during READ cycle {i + 1}"
 
-    dut.ena.value = 1
-    await ClockCycles(dut.clk, 200)
+    await tick(dut)  # COMPUTE (7th cycle)
+    assert int(dut.uo_out.value) == 0, "uo_out changed during COMPUTE"
 
-    spike_bits = int(dut.uo_out.value) & 0b1111
-    assert spike_bits == 0, \
-        f"expected no spikes with zero weights, got {spike_bits}"
-
-    dut._log.info("PASS")
-
-
-@cocotb.test()
-async def test_outputs_always_valid(dut):
-    dut._log.info("Test 5 — outputs stay valid for 500 cycles")
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-
-    dut.rst_n.value = 0
-    dut.ena.value = 0
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
-
-    weight_pattern = int("0111" * 32, 2)
-    await program_weights(dut, weight_pattern)
-    await ClockCycles(dut.clk, 2)
-
-    dut.ena.value = 1
-    for _ in range(500):
-        await RisingEdge(dut.clk)
-        assert dut.uo_out.value.is_resolvable, \
-            "output contains X or Z — something is undriven"
-
-    dut._log.info("PASS")
-
-
-@cocotb.test()
-async def test_spikes_with_max_weights(dut):
-    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-
-    dut.rst_n.value = 0
-    dut.ena.value = 0
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
-
-    await program_weights(dut, int("0111" * 32, 2))
-    dut.ena.value = 1
-    dut.ui_in.value = 0b0011 << 4
-
-    spike_count = 0
-    for _ in range(5000):
-        await RisingEdge(dut.clk)
-        spike_count += bin(int(dut.uo_out.value) & 0b1111).count("1")
-
-    dut._log.info(f"total spikes in 5000 cycles: {spike_count}")
-    assert spike_count > 0, "no neuron spiked in 5000 cycles with max weights"
+    await tick(dut)  # first WRITE cycle
+    assert int(dut.uo_out.value) == 0xFF, "first output byte must be the MSB byte"
