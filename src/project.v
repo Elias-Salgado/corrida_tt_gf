@@ -15,7 +15,7 @@ module tt_um_wallace_multiplier_serial (
     reg [47:0] input_reg, output_reg;
     wire [47:0] product;
 
-    wallace_multiplier multiplier (
+    wallace_multiplier_serial multiplier (
         .a(input_reg[47:24]),
         .b(input_reg[23:0]),
         .c(product)
