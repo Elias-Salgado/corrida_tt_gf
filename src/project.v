@@ -3,8 +3,8 @@ module tt_um_wallace_multiplier_serial (
     input wire       clk,
     input wire       rst_n,
     input wire       ena,
-    input wire [7:0] data_in,
-    output reg [7:0] data_out 
+    input wire [7:0] ui_in,
+    output reg [7:0] uo_out 
 );
     localparam [1:0] READ = 2'd0, COMPUTE = 2'd1, WRITE = 2'd2;
     reg [1:0] state;
@@ -24,11 +24,11 @@ module tt_um_wallace_multiplier_serial (
             byte_count <= 3'd0;
             input_reg  <= 48'd0;
             output_reg <= 48'd0;
-            data_out   <= 8'd0;
+            uo_out   <= 8'd0;
         end else if (ena) begin
             case (state)
                 READ: begin
-                    input_reg <= {input_reg[39:0], data_in};
+                    input_reg <= {input_reg[39:0], ui_in};
                     if (byte_count == 3'd5) begin
                         byte_count <= 3'd0;
                         state <= COMPUTE;
@@ -41,7 +41,7 @@ module tt_um_wallace_multiplier_serial (
                     state <= WRITE;
                 end
                 WRITE: begin
-                    data_out <= output_reg[47:40];
+                    uo_out <= output_reg[47:40];
                     output_reg <= {output_reg[39:0], 8'd0};
                     if (byte_count == 3'd5) begin
                         byte_count <= 3'd0;
