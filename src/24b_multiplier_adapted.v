@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 module wallace_multiplier_serial (
     input wire       clk,
-    input wire       rst,
+    input wire       rst, 
     input wire       cs,
     input wire [7:0] data_in,
     output reg [7:0] data_out
