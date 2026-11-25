@@ -15,16 +15,10 @@ module tt_um_wallace_multiplier_serial (
     reg [47:0] input_reg, output_reg;
     wire [47:0] product;
 
-    wallace_multiplier_serial multiplier (
-        .clk(clk),
-        .rst(rst_n),
-        .cs(ena),
-        
-    );
-
-
-
-    
+    module wallace_multiplier multiplier (
+        .a(input_reg [0:23]),
+        .b(input_reg [24:47]),
+        .c(product));    
 
     assign uio_out = 0;
     assign uio_oe  = 0;
